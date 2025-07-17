@@ -28,7 +28,7 @@ with open("most_valuable_players_fast.csv", "r", encoding="utf-8") as f:
             if len(repaired) == expected_columns:
                 fixed_rows.append(repaired)
             else:
-                print(f"⚠️ Could not fix row: {parsed}")
+                print(f"Could not fix row: {parsed}")
 
 # Load into DataFrame
 columns = [
@@ -58,4 +58,4 @@ for col in ["Player URL", "Team Link"]:
     if col in df.columns:
         df[col] = df[col].str.replace(f"{prefix}{prefix}", prefix, regex=False)
 
-df.to_csv("all_players_ratings.csv")
+df.to_csv("all_players_ratings_original.csv")

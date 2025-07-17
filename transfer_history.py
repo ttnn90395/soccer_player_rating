@@ -10,15 +10,15 @@ from urllib3.exceptions import InsecureRequestWarning
 
 warnings.simplefilter("ignore", InsecureRequestWarning)
 
-# 📄 Load and sort input CSV by index
+# Load and sort input CSV by index
 df = pd.read_csv("all_players_ratings_original.csv")
 df = df.sort_index()
 
-# 📂 Output file path
+# Output file path
 compiled_path = "compiled_transfers.csv"
 
 
-# 💰 Utility: Clean transfer fee string
+# Utility: Clean transfer fee string
 def parse_fee(price_raw):
     fee_raw = price_raw.lower()
     if "loan" in fee_raw:
@@ -39,24 +39,24 @@ def parse_fee(price_raw):
             return "N/A"
 
 
-# 🧵 Worker function for scraping and writing a single player
+# Worker function for scraping and writing a single player
 def scrape_and_write(index, url):
     full_url = url + "/transfer-history"
     for attempt in range(3):
         try:
-            print(f"🔎 Fetching: {full_url} (Attempt {attempt + 1})")
+            print(f"Fetching: {full_url} (Attempt {attempt + 1})")
             response = requests.get(
                 full_url, headers={"User-Agent": "Mozilla/5.0"}, verify=False
             )
-            print(f"🌐 Status code: {response.status_code}")
+            print(f"Status code: {response.status_code}")
             if response.status_code == 200:
                 break
             time.sleep(2**attempt)
         except Exception as e:
-            print(f"⚠️ Request error: {e}")
+            print(f"Request error: {e}")
             time.sleep(2**attempt)
     else:
-        print(f"❌ Failed to fetch after retries: {full_url}")
+        print(f"Failed to fetch after retries: {full_url}")
         return
 
     try:
@@ -68,7 +68,7 @@ def scrape_and_write(index, url):
         )
 
         transfer_rows = soup.select("table tbody tr")
-        print(f"📄 {player_name}: Found {len(transfer_rows)} transfer rows")
+        print(f"{player_name}: Found {len(transfer_rows)} transfer rows")
 
         player_transfers = []
 
@@ -99,11 +99,11 @@ def scrape_and_write(index, url):
             header = not os.path.exists(compiled_path)
             new_df.to_csv(compiled_path, mode="a", index=False, header=header)
             print(
-                f"📝 Written {len(player_transfers)} transfers for {player_name} (Index {index})"
+                f"Written {len(player_transfers)} transfers for {player_name} (Index {index})"
             )
 
     except Exception as e:
-        print(f"❌ Parsing error for {full_url}: {e}")
+        print(f"Parsing error for {full_url}: {e}")
 
 
 # 🐢 Run scraping sequentially without concurrency
@@ -112,4 +112,4 @@ for idx, url in tqdm(
 ):
     scrape_and_write(idx, url)
 
-print("🏁 Done! All transfers saved to compiled_transfers.csv.")
+print(" Done! All transfers saved to compiled_transfers.csv.")

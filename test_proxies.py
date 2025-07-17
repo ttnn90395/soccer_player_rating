@@ -17,6 +17,6 @@ for proxy in PROXIES:
     proxies = {"http": proxy, "https": proxy}
     try:
         response = requests.get(TEST_URL, proxies=proxies, timeout=TIMEOUT)
-        print(f"✅ Proxy OK: {proxy} → IP seen: {response.json()['origin']}")
+        print(f"Proxy OK: {proxy} → IP seen: {response.json()['origin']}")
     except Exception as e:
-        print(f"❌ Proxy Failed: {proxy} → {e}")
+        print(f"Proxy Failed: {proxy} → {e}")

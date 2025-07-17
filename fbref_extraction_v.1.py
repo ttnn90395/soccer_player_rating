@@ -9,18 +9,18 @@ from tqdm import tqdm
 
 nest_asyncio.apply()
 
-# ✏️ Configuration
+# Configuration
 CSV_PATH = "all_players_ratings.csv"
 DUCKDUCKGO_SEARCH = "https://duckduckgo.com/?q=site%3Afbref.com+"
 CHROMIUM_PATH = (
     r"C:/Users/L1160681/playwright-browsers/chromium-win64/chrome-win/chrome.exe"
 )
 LOG_PATH = "scraping_log.txt"
-RETRY_ATTEMPTS = 3
-RETRY_BACKOFF = 4  # ⏳ Backoff: 4s, 16s, etc.
-WAIT_BETWEEN_TASKS = 0.7  # 🐢 Delay between players
+RETRY_ATTEMPTS = 10
+RETRY_BACKOFF = 4  # Backoff: 4s, 16s, etc.
+WAIT_BETWEEN_TASKS = 1  # Delay between players
 
-# 📄 Load & validate CSV
+# Load & validate CSV
 if not os.path.exists(CSV_PATH):
     raise FileNotFoundError(f"Missing CSV file at: {CSV_PATH}")
 
@@ -33,15 +33,15 @@ if "fbref_url" not in df.columns:
 
 df = df.sample(frac=1).reset_index(drop=True)
 
-# 📊 Show how many players are missing fbref_url
+# Show how many players are missing fbref_url
 missing_count = df["fbref_url"].isna().sum()
-print(f"🔢 Players missing fbref_url: {missing_count}")
+print(f"Players missing fbref_url: {missing_count}")
 with open(LOG_PATH, "w", encoding="utf-8") as log:
     log.write(f"Scraping started at {datetime.now()}\n")
-    log.write(f"🔢 Players missing fbref_url: {missing_count}\n\n")
+    log.write(f"Players missing fbref_url: {missing_count}\n\n")
 
 
-# 🔄 Single player search
+# Single player search
 async def scrape_player(tab, index, name, club):
     query = f"{name} {club} fbref profile".replace(" ", "+")
     url = DUCKDUCKGO_SEARCH + query + "&ia=web"
@@ -50,7 +50,7 @@ async def scrape_player(tab, index, name, club):
 
     for attempt in range(RETRY_ATTEMPTS):
         try:
-            await tab.goto(url, wait_until="domcontentloaded", timeout=1000)
+            await tab.goto(url, wait_until="domcontentloaded", timeout=10000)
             await tab.wait_for_timeout(700)
             content = await tab.content()
 
@@ -65,9 +65,9 @@ async def scrape_player(tab, index, name, club):
                     break
 
             msg = (
-                f"✅ Found: {name} ({club}) → {match}"
+                f" Found: {name} ({club}) → {match}"
                 if match
-                else f"❌ Not found: {name} ({club})"
+                else f"Not found: {name} ({club})"
             )
             print(msg)
             with open(LOG_PATH, "a", encoding="utf-8") as log:
@@ -75,9 +75,9 @@ async def scrape_player(tab, index, name, club):
 
             if match:
                 df.at[index, "fbref_url"] = match
-                df.to_csv(CSV_PATH, index=False)  # 💾 Live update!
+                df.to_csv(CSV_PATH, index=False)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
-                    log.write(f"📝 Saved {name} ({club}) to CSV\n")
+                    log.write(f"Saved {name} ({club}) to CSV\n")
 
             else:
                 debug_path = f"debug_{index}_{name.replace(' ', '_')}.html"
@@ -91,7 +91,7 @@ async def scrape_player(tab, index, name, club):
             err_text = str(e)
 
             if "418" in err_text or "I'm a teapot" in err_text:
-                msg = f"🫖 418 Teapot error for {name} ({club}) — sleeping for 1 hour."
+                msg = f"418 Teapot error for {name} ({club}) — sleeping for 1 hour."
                 print(msg)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
                     log.write(msg + "\n")
@@ -99,18 +99,18 @@ async def scrape_player(tab, index, name, club):
                 break
 
             if "ERR_TIMED_OUT" in err_text:
-                timeout_msg = f"⏱️ Timeout error: {name} ({club}) → {url}"
+                timeout_msg = f"Timeout error: {name} ({club}) → {url}"
                 print(timeout_msg)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
                     log.write(timeout_msg + "\n")
             else:
-                error_msg = f"⚠️ Error on {name} ({club}): {err_text}"
+                error_msg = f"Error on {name} ({club}): {err_text}"
                 print(error_msg)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
                     log.write(error_msg + "\n")
 
 
-# 🚀 Scraper loop
+# Scraper loop
 async def run_scraper():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROMIUM_PATH, headless=False)
@@ -121,7 +121,7 @@ async def run_scraper():
         ):
             try:
                 if pd.notnull(row["fbref_url"]):
-                    skip_msg = f"⏭️ Skipped: {row['Name']} ({row['Team']}) — already has fbref_url"
+                    skip_msg = f"Skipped: {row['Name']} ({row['Team']}) — already has fbref_url"
                     print(skip_msg)
                     with open(LOG_PATH, "a", encoding="utf-8") as log:
                         log.write(skip_msg + "\n")
@@ -132,7 +132,7 @@ async def run_scraper():
                 await scrape_player(tab, i, name, club)
             except Exception as e:
                 error_msg = (
-                    f"💥 Unhandled error for {row['Name']} ({row['Team']}): {str(e)}"
+                    f"Unhandled error for {row['Name']} ({row['Team']}): {str(e)}"
                 )
                 print(error_msg)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
@@ -140,8 +140,8 @@ async def run_scraper():
 
         await browser.close()
 
-    print(f"\n📁 Done! Logs saved to {LOG_PATH}")
+    print(f" Done! Logs saved to {LOG_PATH}")
 
 
-# 🧨 Start
+# Start
 asyncio.run(run_scraper())

@@ -38,14 +38,14 @@ async def scrape_all_fbref_tables():
     soup = BeautifulSoup(html, "html.parser")
     tables = soup.find_all("table")
 
-    print(f"🔍 Found {len(tables)} tables on page")
+    print(f"Found {len(tables)} tables on page")
 
     for table in tables:
         table_id = table.get("id", None)
         if not table_id:
             continue  # skip tables without ID
 
-        print(f"📊 Processing table: {table_id}")
+        print(f"Processing table: {table_id}")
 
         # Extract headers
         header_row = (
@@ -73,9 +73,9 @@ async def scrape_all_fbref_tables():
             df = pd.DataFrame(rows, columns=headers)
             output_path = os.path.join(SAVE_FOLDER, f"{table_id}.csv")
             df.to_csv(output_path, index=False)
-            print(f"✅ Saved: {output_path}")
+            print(f"Saved: {output_path}")
         else:
-            print(f"⚠️ Skipped empty table: {table_id}")
+            print(f"Skipped empty table: {table_id}")
 
 
 # Run the function

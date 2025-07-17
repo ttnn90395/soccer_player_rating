@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 nest_asyncio.apply()
 
-# ✏️ Configuration
+# Configuration
 ORIGINAL_CSV = r"C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_original.csv"
 REFERENCE_CSV = r"C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings.csv"
 DUCKDUCKGO_SEARCH = "https://duckduckgo.com/?q=site%3Afbref.com+"
@@ -20,7 +20,7 @@ RETRY_ATTEMPTS = 10
 RETRY_BACKOFF = 4
 WAIT_BETWEEN_TASKS = 0.2
 
-# 📄 Load CSVs
+# Load CSVs
 if not os.path.exists(ORIGINAL_CSV) or not os.path.exists(REFERENCE_CSV):
     raise FileNotFoundError("One or both CSV files are missing.")
 
@@ -38,7 +38,7 @@ df_original["fbref_url"] = None
 df_original = df_original.sort_values(by="Value", ascending=False)
 
 
-# 🔄 Single player search
+# Single player search
 async def scrape_player(tab, index, name, club):
     query = f"{name} {club} fbref profile".replace(" ", "+")
     url = DUCKDUCKGO_SEARCH + query + "&ia=web"
@@ -59,9 +59,9 @@ async def scrape_player(tab, index, name, club):
                     break
 
             msg = (
-                f"✅ Found: {name} ({club}) → {match}"
+                f"Found: {name} ({club}) → {match}"
                 if match
-                else f"❌ Not found: {name} ({club})"
+                else f" Not found: {name} ({club})"
             )
             print(msg)
             with open(LOG_PATH, "a", encoding="utf-8") as log:
@@ -71,7 +71,7 @@ async def scrape_player(tab, index, name, club):
                 df_original.at[index, "fbref_url"] = match
                 df_original.to_csv(ORIGINAL_CSV, index=False)
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
-                    log.write(f"📝 Saved {name} ({club}) to CSV\n")
+                    log.write(f"Saved {name} ({club}) to CSV\n")
             else:
                 debug_path = f"debug_{index}_{name.replace(' ', '_')}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
@@ -82,15 +82,15 @@ async def scrape_player(tab, index, name, club):
             await asyncio.sleep(RETRY_BACKOFF**attempt)
             err_text = str(e)
             if "418" in err_text or "I'm a teapot" in err_text:
-                print(f"🫖 418 Teapot error for {name} ({club}) — sleeping for 1 hour.")
+                print(f"418 Teapot error for {name} ({club}) — sleeping for 1 hour.")
                 await asyncio.sleep(3600)
                 break
-            print(f"⚠️ Error on {name} ({club}): {err_text}")
+            print(f"Error on {name} ({club}): {err_text}")
             with open(LOG_PATH, "a", encoding="utf-8") as log:
-                log.write(f"⚠️ Error on {name} ({club}): {err_text}\n")
+                log.write(f"Error on {name} ({club}): {err_text}\n")
 
 
-# 🚀 Scraper loop
+# Scraper loop
 async def run_scraper():
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROMIUM_PATH, headless=False)
@@ -99,7 +99,7 @@ async def run_scraper():
         for i, row in tqdm(
             df_original.iterrows(),
             total=len(df_original),
-            desc="🔎 Scraping FBref links",
+            desc="Scraping FBref links",
         ):
             name = str(row["Name"]).strip()
             club = str(row["Team"]).strip()
@@ -113,16 +113,16 @@ async def run_scraper():
             if not ref_match.empty and pd.notnull(ref_match.iloc[0]["fbref_url"]):
                 url = ref_match.iloc[0]["fbref_url"]
                 df_original.at[i, "fbref_url"] = url
-                print(f"📥 Retrieved from reference: {name} ({club}) → {url}")
+                print(f"Retrieved from reference: {name} ({club}) → {url}")
                 with open(LOG_PATH, "a", encoding="utf-8") as log:
-                    log.write(f"📥 Retrieved from reference: {name} ({club}) → {url}\n")
+                    log.write(f" Retrieved from reference: {name} ({club}) → {url}\n")
                 continue
 
             await scrape_player(tab, i, name, club)
 
         await browser.close()
-    print(f"\n📁 Done! Logs saved to {LOG_PATH}")
+    print(f"Done! Logs saved to {LOG_PATH}")
 
 
-# 🧨 Start
+# Start
 asyncio.run(run_scraper())
