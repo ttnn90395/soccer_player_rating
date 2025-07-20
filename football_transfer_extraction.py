@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from tqdm import tqdm
 
-# 🔗 Constants
+# Constants
 BASE_URL = (
     "https://www.footballtransfers.com/en/values/players/most-valuable-players/{}"
 )
@@ -28,7 +28,7 @@ SCRAPED_PAGES_LOG = "scraped_pages.txt"
 FAILED_PAGES_LOG = "failed_pages.txt"
 
 
-# 📄 Page Logging Helpers
+# Page Logging Helpers
 def load_page_log(file_path):
     try:
         with open(file_path, "r") as f:
@@ -42,7 +42,7 @@ def log_page(file_path, page_number):
         f.write(f"{page_number}\n")
 
 
-# 🧭 Setup WebDriver
+# Setup WebDriver
 def create_driver():
     options = Options()
     options.binary_location = CHROMIUM_PATH
@@ -64,7 +64,7 @@ def create_driver():
     return webdriver.Chrome(options=options)
 
 
-# 🧪 Parse HTML Page
+# Parse HTML Page
 def parse_html(page_source):
     soup = BeautifulSoup(page_source, "html.parser")
     rows = soup.find_all("tr")
@@ -134,11 +134,11 @@ def parse_html(page_source):
                 }
             )
         except Exception as e:
-            print(f"⚠️ Parse error: {e}")
+            print(f"Parse error: {e}")
     return data
 
 
-# 🚜 Scrape Range
+# Scrape Range
 def scrape_page_range(start_page, end_page, scraped_pages):
     driver = create_driver()
     wait = WebDriverWait(driver, TIMEOUT_SECONDS)
@@ -149,7 +149,7 @@ def scrape_page_range(start_page, end_page, scraped_pages):
         leave=False,
     ):
         if page in scraped_pages:
-            print(f"⏭️ Skipping page {page} (already scraped)")
+            print(f" Skipping page {page} (already scraped)")
             continue
 
         for attempt in range(1, MAX_RETRIES + 1):
@@ -172,20 +172,20 @@ def scrape_page_range(start_page, end_page, scraped_pages):
                         index=False,
                     )
                     log_page(SCRAPED_PAGES_LOG, page)
-                    print(f"✅ Saved page {page} with {len(data)} players")
+                    print(f" Saved page {page} with {len(data)} players")
                 else:
-                    print(f"⚠️ No data found on page {page}")
+                    print(f" No data found on page {page}")
                 break
             except Exception as e:
-                print(f"🔁 Retry {attempt} failed on page {page}: {e}")
+                print(f" Retry {attempt} failed on page {page}: {e}")
                 time.sleep(2 * attempt)
                 if attempt == MAX_RETRIES:
                     log_page(FAILED_PAGES_LOG, page)
-                    print(f"❌ Failed page {page} after {MAX_RETRIES} retries")
+                    print(f" Failed page {page} after {MAX_RETRIES} retries")
     driver.quit()
 
 
-# 🚀 Main Execution
+#  Main Execution
 def main():
     chunk_size = math.ceil(MAX_PAGES / THREADS)
     ranges = [
@@ -205,18 +205,18 @@ def main():
             try:
                 future.result()
             except Exception as e:
-                print(f"❌ Thread error: {e}")
+                print(f" Thread error: {e}")
 
-    # 📊 Summary Report
+    # Summary Report
     scraped = load_page_log(SCRAPED_PAGES_LOG)
     failed = load_page_log(FAILED_PAGES_LOG)
     all_attempted = scraped | failed
     skipped = set(range(1, MAX_PAGES + 1)) - all_attempted
 
-    print("\n📊 Summary:")
-    print(f"✅ Scraped pages: {len(scraped)}")
-    print(f"❌ Failed pages: {len(failed)} (see '{FAILED_PAGES_LOG}')")
-    print(f"⏭️ Skipped pages: {len(skipped)} (not attempted yet)")
+    print(" Summary:")
+    print(f" Scraped pages: {len(scraped)}")
+    print(f" Failed pages: {len(failed)} (see '{FAILED_PAGES_LOG}')")
+    print(f" Skipped pages: {len(skipped)} (not attempted yet)")
 
 
 if __name__ == "__main__":

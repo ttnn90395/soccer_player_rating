@@ -13,13 +13,13 @@ BASE_URL = "https://fbref.com"
 CHROMIUM_PATH = (
     r"C:/Users/L1160681/playwright-browsers/chromium-win64/chrome-win/chrome.exe"
 )
-SAVE_FOLDER = "alisson_all_fbref_tables"
+SAVE_FOLDER = "haaland_all_fbref_tables"
 
 os.makedirs(SAVE_FOLDER, exist_ok=True)
 
 
 async def scrape_all_fbref_tables():
-    url = f"{BASE_URL}/en/players/7a2e46a8/all_comps/Alisson-Stats---All-Competitions"
+    url = f"{BASE_URL}/en/players/1f44ac21/all_comps/Erling-Haaland-Stats---All-Competitions"
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(executable_path=CHROMIUM_PATH, headless=True)
@@ -39,7 +39,8 @@ async def scrape_all_fbref_tables():
     tables = soup.find_all("table")
 
     print(f"Found {len(tables)} tables on page")
-
+    table_ids = [table.get("id") for table in tables if table.get("id")]
+    print(f"Found tables: {table_ids}")
     for table in tables:
         table_id = table.get("id", None)
         if not table_id:

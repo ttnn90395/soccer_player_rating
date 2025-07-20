@@ -1,54 +1,121 @@
+import json
+import time
+
+import pandas as pd
 import requests
+import urllib3
 from bs4 import BeautifulSoup
 
-# URL of Erling Haaland's profile
-url = "https://fbref.com/en/players/1f44ac21/Erling-Haaland"
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# Send HTTP request
-response = requests.get(url, verify=False)
-soup = BeautifulSoup(response.text, "html.parser")
 
-# Extract name
-name_tag = soup.find("h1")
-name = name_tag.find("span").text if name_tag else "N/A"
+def extract_player_info(url):
+    response = requests.get(url, verify=False)
+    soup = BeautifulSoup(response.text, "html.parser")
 
-# Extract birth info
-birth_tag = soup.find("span", id="necro-birth")
-birth_date = birth_tag.text.strip() if birth_tag else "N/A"
-birth_place = (
-    birth_tag.find_next("span").find_next("span").text.strip() if birth_tag else "N/A"
-)
+    player = {
+        "height": "",
+        "weight": "",
+        "position": "",
+        "club": "",
+        "birth_date": "",
+        "birth_place": "",
+        "weekly_wage": "",
+        "instagram": "",
+        "recognitions": [],
+    }
 
-# Extract wages
-wages_tag = soup.find("span", style=lambda value: value and "color:#932a12" in value)
-weekly_wage = wages_tag.text.strip() if wages_tag else "N/A"
+    # Extract from JSON-LD script
+    script_tag = soup.find("script", type="application/ld+json")
+    if script_tag:
+        try:
+            data = json.loads(script_tag.string)
+            player["height"] = (
+                data.get("height", {}).get("value", "")
+                if isinstance(data.get("height"), dict)
+                else data.get("height", "")
+            )
+            player["weight"] = (
+                data.get("weight", {}).get("value", "")
+                if isinstance(data.get("weight"), dict)
+                else data.get("weight", "")
+            )
+            member_of = data.get("memberOf", {})
+            if isinstance(member_of, dict):
+                player["club"] = member_of.get("name", "")
+        except json.JSONDecodeError:
+            pass
 
-# Extract Instagram
-insta_tag = soup.find("a", href=lambda href: href and "instagram.com" in href)
-instagram = insta_tag["href"] if insta_tag else "N/A"
+    # Birth info
+    birth_tag = soup.find("span", id="necro-birth")
+    if birth_tag:
+        player["birth_date"] = birth_tag.text.strip()
+        next_span = birth_tag.find_next("span").find_next("span")
+        player["birth_place"] = next_span.text.strip() if next_span else ""
 
-# Extract recognitions
-bling_section = soup.find("span", id="bling-alt-text")
-recognitions = []
-if bling_section and bling_section.string:
-    recognitions = [
-        line.strip("* ").strip()
-        for line in bling_section.string.strip().split("\n")
-        if line.strip()
-    ]
+    # Weekly wage
+    wage_tag = soup.find("span", style=lambda value: value and "color:#932a12" in value)
+    if wage_tag:
+        player["weekly_wage"] = wage_tag.text.strip()
 
-# Display results
-player_info = {
-    "name": name,
-    "birth_date": birth_date,
-    "birth_place": birth_place,
-    "weekly_wage": weekly_wage,
-    "instagram": instagram,
-    "recognitions": recognitions,
-}
+    # Instagram
+    insta_tag = soup.find("a", href=lambda href: href and "instagram.com" in href)
+    if insta_tag:
+        player["instagram"] = insta_tag["href"]
 
-for key, value in player_info.items():
-    print(f"{key}: {value if not isinstance(value, list) else ''}")
-    if isinstance(value, list):
-        for item in value:
-            print(f"  - {item}")
+    # Recognitions
+    bling_tag = soup.find("span", id="bling-alt-text")
+    if bling_tag and bling_tag.string:
+        player["recognitions"] = [
+            line.strip("* ").strip()
+            for line in bling_tag.string.strip().split("\n")
+            if line.strip()
+        ]
+
+    # Position
+    position_tag = soup.find(string=lambda text: text and "Position:" in text)
+    if position_tag:
+        player["position"] = position_tag.split("Position:")[-1].strip()
+
+    return player
+
+
+# --- Load CSV and update ---
+csv_path = "C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_original_updated.csv"
+df = pd.read_csv(csv_path)
+
+# Create columns if they don't exist
+columns_to_create = [
+    "Height",
+    "Weight",
+    "Positions_fbref",
+    "Club",
+    "Birth_date",
+    "Birth_place",
+    "Weekly_wage",
+    "Instagram",
+    "Recognitions",
+]
+for col in columns_to_create:
+    if col not in df.columns:
+        df[col] = ""
+
+# Loop through each player URL
+for index, row in df.iterrows():
+    url = row.get("fbref_url", "")
+    if not url:
+        continue
+    try:
+        info = extract_player_info(url)
+        for key in info:
+            value = "; ".join(info[key]) if isinstance(info[key], list) else info[key]
+            df.at[
+                index, "Positions_fbref" if key == "position" else key.capitalize()
+            ] = value if value not in ["N/A", None] else ""
+        time.sleep(2)  # Prevent hammering the site
+    except Exception as e:
+        print(f"Error processing {url}: {e}")
+
+# Save updated data
+df.to_csv(csv_path, index=False)
