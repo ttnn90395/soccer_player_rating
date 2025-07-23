@@ -1,32 +1,60 @@
 import json
+import logging
+import os
 import time
 
 import pandas as pd
 import requests
 import urllib3
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 
-# Disable SSL warnings
+# --- Setup ---
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+logging.basicConfig(filename="scraping_errors.log", level=logging.ERROR)
+
+# Path to your CSV
+csv_path = "C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_original_updated.csv"
+
+# Checkpoint tracking
+checkpoint_path = "scraping_checkpoint.txt"
+processed_indices = set()
+
+# Load any previously processed indices
+if os.path.exists(checkpoint_path):
+    with open(checkpoint_path, "r") as f:
+        processed_indices = set(
+            int(line.strip()) for line in f if line.strip().isdigit()
+        )
+
+# Map keys to DataFrame columns
+key_to_column = {
+    "height": "Height",
+    "weight": "Weight",
+    "position": "Positions_fbref",
+    "club": "Club",
+    "birth_date": "Birth_date",
+    "birth_place": "Birth_place",
+    "weekly_wage": "Weekly_wage",
+    "instagram": "Instagram",
+    "recognitions": "Recognitions",
+}
 
 
+# --- Function to extract player info from FBref profile ---
 def extract_player_info(url):
-    response = requests.get(url, verify=False)
+    try:
+        response = requests.get(url, verify=False, timeout=1000)
+        response.raise_for_status()
+    except Exception as e:
+        logging.error(f"Request failed for {url}: {e}")
+        return None
+
     soup = BeautifulSoup(response.text, "html.parser")
+    player = {key: "" for key in key_to_column}
+    player["recognitions"] = []
 
-    player = {
-        "height": "",
-        "weight": "",
-        "position": "",
-        "club": "",
-        "birth_date": "",
-        "birth_place": "",
-        "weekly_wage": "",
-        "instagram": "",
-        "recognitions": [],
-    }
-
-    # Extract from JSON-LD script
+    # JSON-LD structured data
     script_tag = soup.find("script", type="application/ld+json")
     if script_tag:
         try:
@@ -45,17 +73,18 @@ def extract_player_info(url):
             if isinstance(member_of, dict):
                 player["club"] = member_of.get("name", "")
         except json.JSONDecodeError:
-            pass
+            logging.error(f"JSON decode failed for {url}")
 
     # Birth info
     birth_tag = soup.find("span", id="necro-birth")
     if birth_tag:
         player["birth_date"] = birth_tag.text.strip()
         next_span = birth_tag.find_next("span").find_next("span")
-        player["birth_place"] = next_span.text.strip() if next_span else ""
+        if next_span:
+            player["birth_place"] = next_span.text.strip()
 
     # Weekly wage
-    wage_tag = soup.find("span", style=lambda value: value and "color:#932a12" in value)
+    wage_tag = soup.find("span", style=lambda s: s and "color:#932a12" in s)
     if wage_tag:
         player["weekly_wage"] = wage_tag.text.strip()
 
@@ -81,41 +110,44 @@ def extract_player_info(url):
     return player
 
 
-# --- Load CSV and update ---
-csv_path = "C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_original_updated.csv"
-df = pd.read_csv(csv_path)
+# --- Load CSV and ensure required columns ---
+if not os.path.exists(csv_path):
+    raise FileNotFoundError(f"CSV not found: {csv_path}")
 
-# Create columns if they don't exist
-columns_to_create = [
-    "Height",
-    "Weight",
-    "Positions_fbref",
-    "Club",
-    "Birth_date",
-    "Birth_place",
-    "Weekly_wage",
-    "Instagram",
-    "Recognitions",
-]
-for col in columns_to_create:
+df = pd.read_csv(csv_path, encoding="utf-8-sig")
+
+for col in key_to_column.values():
     if col not in df.columns:
         df[col] = ""
 
-# Loop through each player URL
-for index, row in df.iterrows():
+# --- Scraping loop with resume support ---
+for index, row in tqdm(df.iterrows(), total=len(df), desc="Resumable FBref Scraping"):
+    if index in processed_indices:
+        continue
+
     url = row.get("fbref_url", "")
     if not url:
+        print(f"No URL for index {index}")
         continue
+
     try:
         info = extract_player_info(url)
-        for key in info:
-            value = "; ".join(info[key]) if isinstance(info[key], list) else info[key]
-            df.at[
-                index, "Positions_fbref" if key == "position" else key.capitalize()
-            ] = value if value not in ["N/A", None] else ""
-        time.sleep(2)  # Prevent hammering the site
-    except Exception as e:
-        print(f"Error processing {url}: {e}")
+        time.sleep(2.5)
+        for key, value in info.items():
+            column = key_to_column.get(key)
+            if not column:
+                continue
+            value_str = "; ".join(value) if isinstance(value, list) else value
+            df.at[index, column] = value_str
 
-# Save updated data
+        # Save progress checkpoint
+        with open(checkpoint_path, "a") as f:
+            f.write(f"{index}\n")
+
+        df.to_csv(csv_path, index=False)
+
+    except Exception as e:
+        logging.error(f"Error updating index {index} for {url}: {e}")
+
+# --- Final save (just in case) ---
 df.to_csv(csv_path, index=False)

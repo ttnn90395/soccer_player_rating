@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 # Load the original CSV
 csv_path = r"C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_original_updated.csv"
-df = pd.read_csv(csv_path)
+df = pd.read_csv(csv_path)[:]
 
 # New columns to add
 columns_to_add = [
@@ -107,7 +107,7 @@ for index, row in df.iterrows():
             df.at[index, col] = (
                 data[col] if col != "recognitions" else "; ".join(data[col])
             )
-        time.sleep(1)  # Gentle delay to avoid hammering FBref
+        time.sleep(1.5)  # Gentle delay to avoid hammering FBref
 
 # Save enriched data to a new file
 output_path = r"C:/Users/L1160681/OneDrive - TotalEnergies/Documents/Projet/SP/all_players_ratings_enriched.csv"
