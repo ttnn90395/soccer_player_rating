@@ -8,3 +8,9 @@ Here is the roadmap :
 It is currently a huge mess but we're finishing the first step and we've already collected all the recent transfers for 2).
 In terms of data, we need to get all the match scores of the last years, the length of the past contracts and get the financial capacity of a team.
 In the end, we will probably have to guess the sponsors of each time in the future...
+
+
+For now, in terms of code :
+We have a lot of data-mining (fbref, transfermarket,... ) : a lot of web_scrapping (fbref_extraction, football_transfer_extraction)..., reorganizing my files using python because it became a huge mess.
+For now, my models are in Model_prediction_transfervalue but there are still in trial.
+
